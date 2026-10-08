@@ -1,0 +1,69 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Unique user ID" },
+        "email": { "type": "string", "description": "User email address" },
+        "displayName": { "type": "string", "description": "User full name" },
+        "phoneNumber": { "type": "string", "description": "User contact phone number" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "Home service booking order record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique booking reference ID" },
+        "userId": { "type": "string", "description": "Owner user account UID" },
+        "createdAt": { "type": "string", "description": "Booking creation timestamp" },
+        "totalAmount": { "type": "number", "description": "Subtotal amount in INR" },
+        "discount": { "type": "number", "description": "Discount applied in INR" },
+        "finalAmount": { "type": "number", "description": "Final payable amount in INR" },
+        "serviceDate": { "type": "string", "description": "Scheduled date" },
+        "timeSlot": { "type": "string", "description": "Selected service time window" },
+        "paymentMethod": { "type": "string", "description": "Payment mode (cod, upi, card)" },
+        "paymentStatus": { "type": "string", "description": "Payment status" },
+        "status": { "type": "string", "description": "Live tracking status" },
+        "otp": { "type": "string", "description": "4-digit doorstep verification code" },
+        "etaMinutes": { "type": "number", "description": "Estimated minutes of arrival" },
+        "customerRating": { "type": "number", "description": "Rating out of 5 stars" },
+        "customerFeedback": { "type": "string", "description": "Customer feedback comments" }
+      },
+      "required": ["id", "userId", "finalAmount", "status", "otp"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Service review and technician feedback",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique review ID" },
+        "bookingId": { "type": "string", "description": "Associated booking ID" },
+        "userId": { "type": "string", "description": "Reviewer user ID" },
+        "technicianId": { "type": "string", "description": "Reviewed technician ID" },
+        "rating": { "type": "number", "description": "Star rating 1 to 5" },
+        "comment": { "type": "string", "description": "Review text" },
+        "createdAt": { "type": "string", "description": "Timestamp" }
+      },
+      "required": ["id", "bookingId", "userId", "rating"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles indexed by UID"
+    },
+    "/bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "Service booking orders and tracking status"
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Customer verified ratings and reviews"
+    }
+  }
+}

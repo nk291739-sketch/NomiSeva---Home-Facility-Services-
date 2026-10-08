@@ -69,6 +69,7 @@ export interface CartItem {
 
 export interface BookingRecord {
   id: string;
+  userId?: string;
   createdAt: string;
   items: CartItem[];
   totalAmount: number;

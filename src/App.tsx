@@ -31,11 +31,27 @@ import {
   Zap,
   ShoppingBag
 } from 'lucide-react';
+import { 
+  auth, 
+  db, 
+  googleProvider, 
+  signInWithPopup, 
+  firebaseSignOut, 
+  onAuthStateChanged,
+  User,
+  testConnection,
+  handleFirestoreError,
+  OperationType
+} from './firebase';
+import { collection, doc, setDoc, query, where, onSnapshot } from 'firebase/firestore';
 
 export default function App() {
   // Localization & Region
   const [lang, setLang] = useState<'en' | 'hi'>('hi');
   const [currentCity, setCurrentCity] = useState<string>('Delhi NCR');
+
+  // Firebase User
+  const [user, setUser] = useState<User | null>(null);
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -69,6 +85,58 @@ export default function App() {
   // Real-Time Tracking modal
   const [activeTrackingBookingId, setActiveTrackingBookingId] = useState<string | null>(null);
 
+  // Test Firestore Connection on startup
+  useEffect(() => {
+    testConnection();
+  }, []);
+
+  // Listen for Firebase Auth changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        // Create/update user document in /users/{uid}
+        const userRef = doc(db, 'users', currentUser.uid);
+        setDoc(userRef, {
+          uid: currentUser.uid,
+          email: currentUser.email || '',
+          displayName: currentUser.displayName || 'UrbanSeva User',
+          phoneNumber: currentUser.phoneNumber || '',
+          createdAt: new Date().toISOString()
+        }, { merge: true }).catch((err) => {
+          handleFirestoreError(err, OperationType.WRITE, `users/${currentUser.uid}`);
+        });
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Listen to Firestore bookings when user is authenticated
+  useEffect(() => {
+    if (!user) return;
+
+    const bookingsCol = collection(db, 'bookings');
+    const q = query(bookingsCol, where('userId', '==', user.uid));
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const remoteBookings: BookingRecord[] = [];
+          snapshot.forEach((docSnap) => {
+            remoteBookings.push(docSnap.data() as BookingRecord);
+          });
+          setBookings(remoteBookings);
+        }
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'bookings');
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user]);
+
   // Sync state to local storage
   useEffect(() => {
     try {
@@ -85,6 +153,22 @@ export default function App() {
       console.error(e);
     }
   }, [bookings]);
+
+  const handleSignIn = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (err) {
+      console.error('Sign-in error:', err);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await firebaseSignOut(auth);
+    } catch (err) {
+      console.error('Sign-out error:', err);
+    }
+  };
 
   // Cart Handlers
   const handleAddToCart = (service: ServiceItem) => {
@@ -119,15 +203,37 @@ export default function App() {
   const handleClearCart = () => setCart([]);
 
   // Booking completion
-  const handleBookingSuccess = (newBooking: BookingRecord) => {
-    setBookings((prev) => [newBooking, ...prev]);
-    setActiveTrackingBookingId(newBooking.id);
+  const handleBookingSuccess = async (newBooking: BookingRecord) => {
+    const bookingToSave: BookingRecord = {
+      ...newBooking,
+      userId: user ? user.uid : 'guest'
+    };
+
+    setBookings((prev) => [bookingToSave, ...prev]);
+    setActiveTrackingBookingId(bookingToSave.id);
+
+    // Persist to Firestore if user is authenticated
+    if (user) {
+      try {
+        await setDoc(doc(db, 'bookings', bookingToSave.id), bookingToSave);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, `bookings/${bookingToSave.id}`);
+      }
+    }
   };
 
-  const handleUpdateBooking = (updated: BookingRecord) => {
+  const handleUpdateBooking = async (updated: BookingRecord) => {
     setBookings((prev) =>
       prev.map((b) => (b.id === updated.id ? updated : b))
     );
+
+    if (user && updated.userId === user.uid) {
+      try {
+        await setDoc(doc(db, 'bookings', updated.id), updated, { merge: true });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, `bookings/${updated.id}`);
+      }
+    }
   };
 
   // Quick emergency 30-min booking action
@@ -195,6 +301,9 @@ export default function App() {
         }}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        user={user}
+        onSignIn={handleSignIn}
+        onSignOut={handleSignOut}
       />
 
       {/* 2. Ongoing Live Tracking Banner (If an active booking exists) */}

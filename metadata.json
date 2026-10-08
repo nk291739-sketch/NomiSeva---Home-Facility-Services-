@@ -2,5 +2,7 @@
   "name": "UrbanSeva - Home & Facility Services",
   "description": "Book certified electricians, mechanics, AC repair experts, deep home cleaning, and complete facility maintenance with real-time technician tracking.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
